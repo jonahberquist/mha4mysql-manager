@@ -284,7 +284,7 @@ sub reject_update($$) {
   $log->info();
   if ( $new_master->{master_ip_online_change_script} ) {
     my $command =
-"$orig_master->{master_ip_online_change_script} --command=stop --orig_master_host=$orig_master->{hostname} --orig_master_ip=$orig_master->{ip} --orig_master_port=$orig_master->{port} --orig_master_user=$orig_master->{escaped_user} --orig_master_password=$orig_master->{escaped_password} --new_master_host=$new_master->{hostname} --new_master_ip=$new_master->{ip} --new_master_port=$new_master->{port} --new_master_user=$new_master->{escaped_user} --new_master_password=$new_master->{escaped_password}";
+"$orig_master->{master_ip_online_change_script} --command=stop --orig_master_host=$orig_master->{hostname} --orig_master_ip=$orig_master->{ip} --orig_master_port=$orig_master->{port} --orig_master_user=$orig_master->{escaped_user} --new_master_host=$new_master->{hostname} --new_master_ip=$new_master->{ip} --new_master_port=$new_master->{port} --new_master_user=$new_master->{escaped_user}";
     $command .= " --orig_master_ssh_user=$orig_master->{ssh_user}";
     $command .= " --new_master_ssh_user=$new_master->{ssh_user}";
     $command .= $orig_master->get_ssh_args_if( 1, "orig", 1 );
@@ -295,7 +295,10 @@ sub reject_update($$) {
     $log->info(
 "Executing master ip online change script to disable write on the current master:"
     );
-    $log->info("  $command");
+    $log->info(
+      "  $command --orig_master_password=xxx --new_master_password=xxx");
+    $command .=
+" --orig_master_password=$orig_master->{escaped_password} --new_master_password=$new_master->{escaped_password}";
     my ( $high, $low ) = MHA::ManagerUtil::exec_system($command);
 
     if ( $high == 0 && $low == 0 ) {
@@ -399,7 +402,7 @@ sub switch_master($$$$) {
   # Allow write access on the new master
   if ( $new_master->{master_ip_online_change_script} ) {
     my $command =
-"$new_master->{master_ip_online_change_script} --command=start --orig_master_host=$orig_master->{hostname} --orig_master_ip=$orig_master->{ip} --orig_master_port=$orig_master->{port} --orig_master_user=$orig_master->{escaped_user} --orig_master_password=$orig_master->{escaped_password} --new_master_host=$new_master->{hostname} --new_master_ip=$new_master->{ip} --new_master_port=$new_master->{port} --new_master_user=$new_master->{escaped_user} --new_master_password=$new_master->{escaped_password}";
+"$new_master->{master_ip_online_change_script} --command=start --orig_master_host=$orig_master->{hostname} --orig_master_ip=$orig_master->{ip} --orig_master_port=$orig_master->{port} --orig_master_user=$orig_master->{escaped_user} --new_master_host=$new_master->{hostname} --new_master_ip=$new_master->{ip} --new_master_port=$new_master->{port} --new_master_user=$new_master->{escaped_user}";
     $command .= " --orig_master_ssh_user=$orig_master->{ssh_user}";
     $command .= " --new_master_ssh_user=$new_master->{ssh_user}";
     $command .= $orig_master->get_ssh_args_if( 1, "orig", 1 );
@@ -410,7 +413,10 @@ sub switch_master($$$$) {
     $log->info(
 "Executing master ip online change script to allow write on the new master:"
     );
-    $log->info("  $command");
+    $log->info(
+      "  $command --orig_master_password=xxx --new_master_password=xxx");
+    $command .=
+" --orig_master_password=$orig_master->{escaped_password} --new_master_password=$new_master->{escaped_password}";
     my ( $high, $low ) = MHA::ManagerUtil::exec_system($command);
 
     if ( $high == 0 && $low == 0 ) {
@@ -564,6 +570,10 @@ sub switch_slaves($$$$$$) {
 
   if ($g_orig_master_is_new_slave) {
     $log->info("Starting orig master as a new slave..");
+    if ( exists( $new_master->{use_ip_for_change_master} ) ) {
+      $orig_master->{use_ip_for_change_master} =
+        $new_master->{use_ip_for_change_master};
+    }
     if (
       $_server_manager->change_master_and_start_slave(
         $orig_master, $new_master, $master_log_file, $master_log_pos
